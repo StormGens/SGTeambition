@@ -1,5 +1,7 @@
-package com.stormgens.sgteambition;
+package com.stormgens.sgteambition.ui.activity;
 
+import android.content.Context;
+import android.content.Intent;
 import android.os.Bundle;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
@@ -9,7 +11,14 @@ import android.view.View;
 import android.view.Menu;
 import android.view.MenuItem;
 
+import com.stormgens.sgteambition.R;
+import com.stormgens.sgteambition.ui.activity.test.TestMainActivity;
+
 public class MainActivity extends AppCompatActivity {
+
+    public static Intent newIntent(Context context){
+        return new Intent(context,MainActivity.class);
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -45,6 +54,12 @@ public class MainActivity extends AppCompatActivity {
         //noinspection SimplifiableIfStatement
         if (id == R.id.action_settings) {
             return true;
+        }
+        switch (id){
+            case R.id.action_test:
+                Intent intent=new Intent(MainActivity.this, TestMainActivity.class);
+                startActivity(intent);
+                break;
         }
 
         return super.onOptionsItemSelected(item);

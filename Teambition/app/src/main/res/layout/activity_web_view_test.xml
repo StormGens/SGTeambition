@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:paddingBottom="@dimen/activity_vertical_margin"
+    android:paddingLeft="@dimen/activity_horizontal_margin"
+    android:paddingRight="@dimen/activity_horizontal_margin"
+    android:paddingTop="@dimen/activity_vertical_margin"
+    android:orientation="vertical"
+    tools:context="com.stormgens.sgteambition.ui.activity.test.WebViewTestActivity">
+
+    <WebView
+        android:id="@+id/webview"
+        android:layout_width="match_parent"
+        android:layout_height="250dp"/>
+    <Button
+        android:id="@+id/btn_baidu"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="在WebView里面打开百度"/>
+    <Button
+        android:id="@+id/btn_baidu_intent"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="在新的页面打开百度"/>
+    <Button
+        android:id="@+id/btn_wv_local_page"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="加载本地HTML页面"/>
+    <Button
+        android:id="@+id/btn_call_js"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="调用webView方法"/>
+    <Button
+        android:id="@+id/btn_call_js_param"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="调用webView方法(传递参数)"/>
+
+</LinearLayout>
