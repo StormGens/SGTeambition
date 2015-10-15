@@ -9,8 +9,8 @@ import android.content.Loader;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
+import android.graphics.Bitmap;
 import android.net.Uri;
-import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.ContactsContract;
@@ -46,9 +46,7 @@ import com.stormgens.sgteambition.MyApp;
 import com.stormgens.sgteambition.R;
 import com.stormgens.sgteambition.api.ApiKeys;
 import com.stormgens.sgteambition.api.ApiUrls;
-
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
+import com.stormgens.sgteambition.constant.SPKeys;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -83,10 +81,6 @@ public class LoginActivity extends AppCompatActivity implements LoaderCallbacks<
     TextInputLayout mEilEmail;
     @Bind(R.id.eil_password)
     TextInputLayout mEilPassword;
-    /**
-     * Keep track of the login task to ensure we can cancel it if requested.
-     */
-    private LoadLoaginHtmlTask mAuthTask = null;
 
     // UI references.
     @Bind(R.id.email)
@@ -100,12 +94,15 @@ public class LoginActivity extends AppCompatActivity implements LoaderCallbacks<
     private String mAccount;
     private String mPassword;
 
+    private boolean accountFilled;
+    private boolean oauthed=false;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
         SharedPreferences preferences=getPreferences(MODE_PRIVATE);
-        String c= preferences.getString("code", null);
+        String c= preferences.getString(SPKeys.CODE, null);
         if (!TextUtils.isEmpty(c)){
             gotoMainActivity();
             finish();
@@ -150,12 +147,21 @@ public class LoginActivity extends AppCompatActivity implements LoaderCallbacks<
         settings.setDefaultTextEncodingName("utf-8");
 
         mWvLogin.addJavascriptInterface(new LoginJavaScriptInterface(), "loginjs");
-
         mWvLogin.setWebViewClient(new WebViewClient() {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, String url) {
-                attemptGetCode(url);
+//
                 return super.shouldOverrideUrlLoading(view, url);
+            }
+
+            @Override
+            public void onPageStarted(WebView view, String url, Bitmap favicon) {
+                super.onPageStarted(view, url, favicon);
+            }
+
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                super.onPageFinished(view, url);
             }
         });
 
@@ -164,18 +170,38 @@ public class LoginActivity extends AppCompatActivity implements LoaderCallbacks<
             public void onProgressChanged(WebView view, int newProgress) {
                 if (newProgress == 100) {
                     mProgressView.setVisibility(View.GONE);
+                    Logger.d("webView 100 progress:" + mWvLogin.getUrl());
+
+                    if (mWvLogin.getUrl().startsWith(ApiKeys.RedirectUri) && !oauthed) {
+                        oauthed = true;
+
+                        boolean success = attemptGetCode(mWvLogin.getUrl());
+                        if (success) {
+                            Toast.makeText(LoginActivity.this, "认证成功，跳转到主页面", Toast.LENGTH_SHORT).show();
+                            mWvLogin.loadUrl("javascript:" + FileUtils.readAssetsFile("getaccount.js",
+                                    MyApp.getInstance()));
+                            mWvLogin.loadUrl("javascript:getAccount()");
+                            gotoMainActivity();
+                            finish();
+                        } else {
+                            mWvLogin.loadUrl(ApiUrls.AUTH);
+                        }
+                    }
+                    if (!accountFilled && mWvLogin.getUrl().contains("https://account.teambition.com/login?next_url")) {
+                        String script = FileUtils.readAssetsFile("login.js", MyApp.getInstance());
+                        script = script.replace("%password%", mPassword);
+                        script = script.replace("%email%", mAccount);
+                        mWvLogin.loadUrl("javascript:" + script);
+                        mWvLogin.loadUrl("javascript:fillAccount()");
+                        accountFilled = true;
+                    }
+                    if (mWvLogin.getUrl().contains("https://account.teambition.com/oauth2/authorize?client_id")) {
+                        String script = FileUtils.readAssetsFile("oauth.js", MyApp.getInstance());
+                        mWvLogin.loadUrl("javascript:" + script);
+                        mWvLogin.loadUrl("javascript:auth()");
+                    }
                 } else {
                     mProgressView.setVisibility(View.VISIBLE);
-                }
-
-                if (newProgress == 100) {
-                    Logger.d("webView 100 progress:" + mWvLogin.getUrl());
-                    if (mWvLogin.getUrl().startsWith(ApiKeys.RedirectUri)){
-                        Toast.makeText(LoginActivity.this, "认证成功，跳转到主页面", Toast.LENGTH_SHORT).show();
-                        gotoMainActivity();
-                        finish();
-                    }
-
                 }
 
                 super.onProgressChanged(view, newProgress);
@@ -184,18 +210,19 @@ public class LoginActivity extends AppCompatActivity implements LoaderCallbacks<
 
     }
 
-    private String attemptGetCode(String url) {
-        if (url.startsWith(ApiKeys.RedirectUri)) {
+    private boolean attemptGetCode(String url) {
             Params params = ParamsUtil.decodeUrl(url);
             String code = params.getParameter("code");
-            Logger.d("授权成功，code：" + code);
-            SharedPreferences preferences=getPreferences(MODE_PRIVATE);
-            preferences.edit().putString("code", code).apply();
-            return code;
-        } else {
-            return "";
-        }
-
+            if (TextUtils.isEmpty(code)){
+                Toast.makeText(LoginActivity.this, "授权失败：" + params.getParameter("error"), Toast
+                        .LENGTH_SHORT).show();
+                return false;
+            }else{
+                Logger.d("授权成功，code：" + code);
+                SharedPreferences preferences=getPreferences(MODE_PRIVATE);
+                preferences.edit().putString(SPKeys.CODE, code).apply();
+                return true;
+            }
     }
 
     final class LoginJavaScriptInterface {
@@ -208,6 +235,8 @@ public class LoginActivity extends AppCompatActivity implements LoaderCallbacks<
         public void setAccount(String account, String password) {
             mAccount = account;
             mPassword = password;
+            Toast.makeText(LoginActivity.this, "account:"+mAccount+"--password:"+password, Toast
+                    .LENGTH_SHORT).show();
         }
 
     }
@@ -262,9 +291,6 @@ public class LoginActivity extends AppCompatActivity implements LoaderCallbacks<
      * errors are presented and no actual login attempt is made.
      */
     private void attemptLogin() {
-        if (mAuthTask != null) {
-            return;
-        }
 
         // Store values at the time of the login attempt.
         mAccount= mActEmail.getText().toString();
@@ -299,14 +325,7 @@ public class LoginActivity extends AppCompatActivity implements LoaderCallbacks<
             // form field with an error.
             focusView.requestFocus();
         } else {
-            // Show a progress spinner, and kick off a background task to
-            // perform the user login attempt.
-//            showProgress(true);
-//            mAuthTask = new UserLoginTask(mAccount, mPassword);
-//            mAuthTask=new LoadLoaginHtmlTask(mAccount,mPassword);
-//            mAuthTask.execute((Void) null);
-            mRlWebview.setVisibility(View.VISIBLE);
-            mLoginFormView.setVisibility(View.GONE);
+            switchToWebView();
             mWvLogin.loadUrl(ApiUrls.AUTH);
 
         }
@@ -383,7 +402,6 @@ public class LoginActivity extends AppCompatActivity implements LoaderCallbacks<
             emails.add(cursor.getString(ProfileQuery.ADDRESS));
             cursor.moveToNext();
         }
-
         addEmailsToAutoComplete(emails);
     }
 
@@ -416,63 +434,6 @@ public class LoginActivity extends AppCompatActivity implements LoaderCallbacks<
         startActivity(MainActivity.newIntent(LoginActivity.this));
     }
 
-    /**
-     * Represents an asynchronous login/registration task used to authenticate
-     * the user.
-     */
-    public class UserLoginTask extends AsyncTask<Void, Void, Boolean> {
-        private final String mEmail;
-        private final String mPassword;
-
-        UserLoginTask(String email, String password) {
-            mEmail = email;
-            mPassword = password;
-        }
-
-        @Override
-        protected Boolean doInBackground(Void... params) {
-            // TODO: attempt authentication against a network service.
-
-            try {
-                // Simulate network access.
-                Thread.sleep(2000);
-            } catch (InterruptedException e) {
-                return false;
-            }
-
-            for (String credential : DUMMY_CREDENTIALS) {
-                String[] pieces = credential.split(":");
-                if (pieces[0].equals(mEmail)) {
-                    // Account exists, return true if the password matches.
-                    return pieces[1].equals(mPassword);
-                }
-            }
-
-            // TODO: register the new account here.
-            return true;
-        }
-
-        @Override
-        protected void onPostExecute(final Boolean success) {
-            mAuthTask = null;
-            showProgress(false);
-
-            if (success) {
-
-                gotoMainActivity();
-
-            } else {
-                mEtPassword.setError(getString(R.string.error_incorrect_password));
-                mEtPassword.requestFocus();
-            }
-        }
-
-        @Override
-        protected void onCancelled() {
-            mAuthTask = null;
-            showProgress(false);
-        }
-    }
 
     class SGTextWatcher implements TextWatcher{
         TextInputLayout textInputLayout;
@@ -497,47 +458,24 @@ public class LoginActivity extends AppCompatActivity implements LoaderCallbacks<
         }
     }
 
-    class LoadLoaginHtmlTask extends AsyncTask<Void,Void,String>{
-
-        private final String mEmail;
-        private final String mPassword;
-
-        public LoadLoaginHtmlTask(String mEmail, String mPassword) {
-            this.mEmail = mEmail;
-            this.mPassword = mPassword;
+    @Override
+    public void onBackPressed() {
+        if (mWvLogin!=null&&mWvLogin.canGoBack()&&mWvLogin.getVisibility()==View.VISIBLE){
+            switchToLoginForm();
+            mWvLogin.goBack();
+            return;
         }
+        super.onBackPressed();
+    }
 
-        @Override
-        protected String doInBackground(Void... params) {
-            final String url= ApiUrls.AUTH;
-            int count = 3;
-            while (count-- >= 0) {
-                try {
-                    String js = FileUtils.readAssetsFile("oauth.js", MyApp.getInstance());
-                    js = js.replace("%email%", mEmail).replace("%password%", mPassword);
-                    Logger.d(url);
-                    Document dom = Jsoup.connect(url).get();
-                    String html = dom.toString();
-                    html = html.replace("</head>", js + "</head>")
-                            .replace("action-type=\"submit\"", "action-type=\"submit\" id=\"submit\"");
-                    return html;
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            }
-            throw new RuntimeException("失败了");
-        }
+    private void switchToLoginForm() {
+        mRlWebview.setVisibility(View.GONE);
+        mLoginFormView.setVisibility(View.VISIBLE);
+    }
 
-        @Override
-        protected void onPostExecute(String s) {
-            mRlWebview.setVisibility(View.VISIBLE);
-            mLoginFormView.setVisibility(View.GONE);
-            mWvLogin.loadDataWithBaseURL("https://account.teambition.com/", s, "text/html", "UTF-8",
-                    "");
-
-            Logger.d(s);
-            super.onPostExecute(s);
-        }
+    private void switchToWebView(){
+        mRlWebview.setVisibility(View.VISIBLE);
+        mLoginFormView.setVisibility(View.GONE);
     }
 }
 
