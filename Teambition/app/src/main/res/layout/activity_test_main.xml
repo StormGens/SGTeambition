@@ -12,10 +12,16 @@
 
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content">
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
         <Button
             android:id="@+id/btn_test_webview"
             android:text="测试WebView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"/>
+        <Button
+            android:id="@+id/btn_test_tablayout"
+            android:text="测试TabHost"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"/>
     </LinearLayout>

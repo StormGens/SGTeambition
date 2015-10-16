@@ -15,11 +15,19 @@ public class TestMainActivity extends AppCompatActivity {
 
     @Bind(R.id.btn_test_webview)
     Button mBtnTestWebview;
+    @Bind(R.id.btn_test_tablayout)
+    Button mBtnTestTablayout;
+
     @OnClick(R.id.btn_test_webview)
-    void ClickWebView(){
-        Intent intent=new Intent(this,WebViewTestActivity.class);
+    void ClickWebView() {
+        Intent intent = new Intent(this, WebViewTestActivity.class);
         startActivity(intent);
     }
+    @OnClick(R.id.btn_test_tablayout)
+    void ClickTablayout(){
+//        Intent intent=new Intent(this,)
+    }
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
