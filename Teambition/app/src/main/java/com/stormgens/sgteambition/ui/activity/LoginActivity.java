@@ -25,6 +25,7 @@ import android.view.KeyEvent;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.view.inputmethod.EditorInfo;
+import android.webkit.CookieManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
@@ -140,9 +141,12 @@ public class LoginActivity extends AppCompatActivity implements LoaderCallbacks<
     }
 
     private void initLoginWebView() {
+        CookieManager cookieManager= CookieManager.getInstance();
+        cookieManager.removeAllCookie();
         WebSettings settings=mWvLogin.getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
+        settings.setSaveFormData(false);
         settings.setAppCacheEnabled(true);
         settings.setDefaultTextEncodingName("utf-8");
 
