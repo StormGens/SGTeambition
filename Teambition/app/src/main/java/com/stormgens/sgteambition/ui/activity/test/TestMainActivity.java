@@ -25,7 +25,8 @@ public class TestMainActivity extends AppCompatActivity {
     }
     @OnClick(R.id.btn_test_tablayout)
     void ClickTablayout(){
-//        Intent intent=new Intent(this,)
+        Intent intent=new Intent(this,TestTabActivity.class);
+        startActivity(intent);
     }
 
 
