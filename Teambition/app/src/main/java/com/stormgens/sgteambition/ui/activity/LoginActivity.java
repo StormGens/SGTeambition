@@ -5,6 +5,7 @@ import android.animation.AnimatorListenerAdapter;
 import android.annotation.TargetApi;
 import android.app.LoaderManager.LoaderCallbacks;
 import android.content.CursorLoader;
+import android.content.Intent;
 import android.content.Loader;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
@@ -21,6 +22,7 @@ import android.support.v7.app.AppCompatActivity;
 import android.text.Editable;
 import android.text.TextUtils;
 import android.text.TextWatcher;
+import android.util.Log;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.View.OnClickListener;
@@ -39,6 +41,13 @@ import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.alibaba.fastjson.JSON;
+import com.squareup.okhttp.Call;
+import com.squareup.okhttp.Callback;
+import com.squareup.okhttp.FormEncodingBuilder;
+import com.squareup.okhttp.OkHttpClient;
+import com.squareup.okhttp.Request;
+import com.squareup.okhttp.Response;
 import com.stormgens.library.common.network.Params;
 import com.stormgens.library.common.network.ParamsUtil;
 import com.stormgens.library.common.utils.FileUtils;
@@ -47,8 +56,12 @@ import com.stormgens.sgteambition.MyApp;
 import com.stormgens.sgteambition.R;
 import com.stormgens.sgteambition.api.ApiKeys;
 import com.stormgens.sgteambition.api.ApiUrls;
+import com.stormgens.sgteambition.api.ApiValues;
+import com.stormgens.sgteambition.api.model.AccessToken;
 import com.stormgens.sgteambition.constant.SPKeys;
+import com.stormgens.sgteambition.ui.activity.test.TestMainActivity;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -102,11 +115,11 @@ public class LoginActivity extends AppCompatActivity implements LoaderCallbacks<
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        SharedPreferences preferences=getPreferences(MODE_PRIVATE);
+        SharedPreferences preferences=getSharedPreferences(SPKeys.USER_INFO_SP, MODE_PRIVATE);
         String c= preferences.getString(SPKeys.CODE, null);
         if (!TextUtils.isEmpty(c)){
             gotoMainActivity();
-            finish();
+            Log.v("zlq", "LoginActivity-code:" + c);
         }
 
         setContentView(R.layout.activity_login);
@@ -176,7 +189,7 @@ public class LoginActivity extends AppCompatActivity implements LoaderCallbacks<
                     mProgressView.setVisibility(View.GONE);
                     Logger.d("webView 100 progress:" + mWvLogin.getUrl());
 
-                    if (mWvLogin.getUrl().startsWith(ApiKeys.RedirectUri) && !oauthed) {
+                    if (mWvLogin.getUrl().startsWith(ApiValues.RedirectUri) && !oauthed) {
                         oauthed = true;
 
                         boolean success = attemptGetCode(mWvLogin.getUrl());
@@ -185,8 +198,8 @@ public class LoginActivity extends AppCompatActivity implements LoaderCallbacks<
                             mWvLogin.loadUrl("javascript:" + FileUtils.readAssetsFile("getaccount.js",
                                     MyApp.getInstance()));
                             mWvLogin.loadUrl("javascript:getAccount()");
-                            gotoMainActivity();
-                            finish();
+                            getToken();
+
                         } else {
                             mWvLogin.loadUrl(ApiUrls.AUTH);
                         }
@@ -223,7 +236,7 @@ public class LoginActivity extends AppCompatActivity implements LoaderCallbacks<
                 return false;
             }else{
                 Logger.d("授权成功，code：" + code);
-                SharedPreferences preferences=getPreferences(MODE_PRIVATE);
+                SharedPreferences preferences=getSharedPreferences(SPKeys.USER_INFO_SP, MODE_PRIVATE);
                 preferences.edit().putString(SPKeys.CODE, code).apply();
                 return true;
             }
@@ -434,8 +447,62 @@ public class LoginActivity extends AppCompatActivity implements LoaderCallbacks<
         mActEmail.setAdapter(adapter);
     }
 
+    private void getToken(){
+        SharedPreferences preferences = getSharedPreferences(SPKeys.USER_INFO_SP, MODE_PRIVATE);
+        final String code = preferences.getString(SPKeys.CODE, null);
+        Log.v("zlq", code + "");
+        OkHttpClient client = new OkHttpClient();
+        FormEncodingBuilder formBodyBuilder = new FormEncodingBuilder();
+        formBodyBuilder.add(ApiKeys.CLIENT_ID, ApiValues.ClientId);
+        formBodyBuilder.add(ApiKeys.CLIENT_SECRET, ApiValues.ClientSecret);
+        formBodyBuilder.add(ApiKeys.CODE, code);
+        formBodyBuilder.add(ApiKeys.GRANT_TYPE, "code");
+        formBodyBuilder.build();
+        Request request = new Request.Builder()
+                .url(ApiUrls.GET_ACCESS_TOKEN)
+                .post(formBodyBuilder.build())
+                .build();
+
+        Call call = client.newCall(request);
+        call.enqueue(new Callback() {
+            @Override
+            public void onFailure(Request request, IOException e) {
+
+            }
+
+            @Override
+            public void onResponse(final Response response) throws IOException {
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            if (response.isSuccessful()){
+                                Log.v("okhttp", "successful");
+                                AccessToken aToken= JSON.parseObject(response.body().string(),
+                                        AccessToken
+                                        .class);
+                                SharedPreferences sp = getSharedPreferences(SPKeys.USER_INFO_SP, MODE_PRIVATE);
+                                sp.edit().putString(SPKeys.ACCESS_TOKEN,aToken.getAccess_token()).apply();
+                                sp.edit().putString(SPKeys.REFRESH_TOKEN,aToken.getRefresh_token
+                                        ()).apply();
+                                gotoMainActivity();
+
+                            }
+//                            Log.v("okhttp", response.body().string());
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                });
+            }
+        });
+
+    }
+
     private void gotoMainActivity(){
-        startActivity(MainActivity.newIntent(LoginActivity.this));
+        Intent intent=new Intent(this, TestMainActivity.class);
+        startActivity(intent);
+        finish();
     }
 
 

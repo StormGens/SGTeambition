@@ -18,4 +18,5 @@
     </string>
     <string name="title_activity_test_tab">TestTabActivity</string>
     <string name="section_format">Hello World from section: %1$d</string>
+    <string name="title_activity_test_ok_http">TestOkHttpActivity</string>
 </resources>

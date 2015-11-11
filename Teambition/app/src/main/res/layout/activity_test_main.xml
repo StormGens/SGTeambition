@@ -24,6 +24,18 @@
             android:text="测试TabHost"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"/>
+
+        <Button
+            android:id="@+id/btn_test_okhttp"
+            android:text="测试OKHttp网络请求"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"/>
+
+        <Button
+            android:id="@+id/btn_test_retrofit"
+            android:text="测试Retrofit网络请求"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"/>
     </LinearLayout>
 
 
